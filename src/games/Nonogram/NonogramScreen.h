@@ -19,6 +19,15 @@ private:
   int hintCellR = -1;
   int hintCellC = -1;
 
+  bool isDragging = false;
+  int dragButton = -1;
+  CellState dragTargetState = CellState::EMPTY;
+  int lastDragR = -1;
+  int lastDragC = -1;
+
+  std::vector<int> GetClueStatus(const std::vector<int> &clues,
+                                 const std::vector<CellState> &line);
+
 protected:
   void ApplyAnimState() override;
   void CalculateAnimSteps() override;
