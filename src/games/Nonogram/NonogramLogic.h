@@ -3,10 +3,9 @@
 
 enum class CellState { EMPTY, FILLED, CROSSED };
 
-void GetPermsInline(size_t clueIdx, size_t pos, const std::vector<int> &clues,
-                    const std::vector<CellState> &currentLine,
-                    std::vector<CellState> &currentPerm,
-                    std::vector<std::vector<CellState>> &validPerms);
+bool SolveLineDP(const std::vector<int> &clues,
+                 const std::vector<CellState> &line,
+                 std::vector<CellState> &resultLine);
 
 class NonogramLogic {
 public:

@@ -78,6 +78,7 @@ bool SudokuLogic::SolveRandomized() {
 void SudokuLogic::GenerateNewGame(int emptyCellsCount) {
   int bestRemoved = -1;
   std::vector<std::vector<char>> bestBoard;
+  std::vector<std::vector<char>> bestTrueSolution;
 
   for (int attempt = 0; attempt < 200; ++attempt) {
     board = std::vector<std::vector<char>>(9, std::vector<char>(9, '.'));
@@ -119,6 +120,7 @@ void SudokuLogic::GenerateNewGame(int emptyCellsCount) {
     if (removed > bestRemoved) {
       bestRemoved = removed;
       bestBoard = board;
+      bestTrueSolution = trueSolution;
     }
     if (removed >= emptyCellsCount) {
       break;
@@ -126,6 +128,7 @@ void SudokuLogic::GenerateNewGame(int emptyCellsCount) {
   }
 
   board = bestBoard;
+  trueSolution = bestTrueSolution;
   for (int i = 0; i < 9; ++i) {
     for (int j = 0; j < 9; ++j) {
       lockedCells[i][j] = (board[i][j] != '.');

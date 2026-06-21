@@ -182,11 +182,11 @@ void SudokuScreen::DrawGame() {
                              20);
     DrawText("LMB: Normal | RMB: Note | 0: Toggle All Notes | DEL: Clear | "
              "BACKSPACE: Menu",
-             (800 - iWidth) / 2, OFFSET_Y + 9 * CELL_SIZE + 35, 20, GRAY);
+             (800 - iWidth) / 2, 570, 20, GRAY);
   } else {
     int iWidth = MeasureText("ANIMATING SOLVER...", 20);
-    DrawText("ANIMATING SOLVER...", (800 - iWidth) / 2,
-             OFFSET_Y + 9 * CELL_SIZE + 35, 20, animPaused ? ORANGE : RED);
+    DrawText("ANIMATING SOLVER...", (800 - iWidth) / 2, 570, 20,
+             animPaused ? ORANGE : RED);
   }
 
   int animTargetR = -1;
@@ -318,6 +318,7 @@ void SudokuScreen::DrawGame() {
   }
 
   if (checkPassed) {
+    DrawRectangle(630, 280, 160, 60, LIGHTGRAY);
     DrawText("All correct!", 650, 300, 20, DARKGREEN);
   }
 

@@ -2,78 +2,158 @@
 #include <random>
 #include <raylib.h>
 
-void GetPermsInline(size_t clueIdx, size_t pos, const std::vector<int> &clues,
-                    const std::vector<CellState> &currentLine,
-                    std::vector<CellState> &currentPerm,
-                    std::vector<std::vector<CellState>> &validPerms) {
-  if (clueIdx == clues.size()) {
-    for (size_t i = pos; i < currentLine.size(); ++i) {
-      if (currentLine[i] == CellState::FILLED)
-        return;
-      currentPerm[i] = CellState::CROSSED;
+bool SolveLineDP(const std::vector<int> &clues,
+                 const std::vector<CellState> &line,
+                 std::vector<CellState> &resultLine) {
+  int N = line.size();
+  int K = clues.size();
+  resultLine = line;
+
+  if (K == 0) {
+    bool possible = true;
+    for (int i = 0; i < N; ++i)
+      if (line[i] == CellState::FILLED)
+        possible = false;
+    if (possible) {
+      for (int i = 0; i < N; ++i)
+        resultLine[i] = CellState::CROSSED;
+      return true;
     }
-    validPerms.push_back(currentPerm);
-    return;
+    return false;
   }
 
-  int remainingBlocks = clues.size() - clueIdx - 1;
-  int minRequired = 0;
-  for (size_t i = clueIdx; i < clues.size(); ++i)
-    minRequired += clues[i];
-  minRequired += remainingBlocks;
+  auto run_dp = [&](const std::vector<int> &cls,
+                    const std::vector<CellState> &ln) {
+    int n = ln.size();
+    int k = cls.size();
+    std::vector<std::vector<bool>> dp(k + 1, std::vector<bool>(n + 1, false));
+    dp[0][0] = true;
+    for (int i = 1; i <= n; ++i) {
+      dp[0][i] = dp[0][i - 1] && (ln[i - 1] != CellState::FILLED);
+    }
+    for (int c = 1; c <= k; ++c) {
+      int L = cls[c - 1];
+      for (int i = 1; i <= n; ++i) {
+        if (ln[i - 1] != CellState::FILLED && dp[c][i - 1]) {
+          dp[c][i] = true;
+        }
+        if (i >= L) {
+          bool canPlace = true;
+          for (int j = i - L; j < i; ++j) {
+            if (ln[j] == CellState::CROSSED) {
+              canPlace = false;
+              break;
+            }
+          }
+          if (canPlace) {
+            if (c == 1) {
+              if (dp[0][i - L])
+                dp[c][i] = true;
+            } else {
+              if (i - L >= 1 && ln[i - L - 1] != CellState::FILLED &&
+                  dp[c - 1][i - L - 1]) {
+                dp[c][i] = true;
+              }
+            }
+          }
+        }
+      }
+    }
+    return dp;
+  };
 
-  int maxStart = currentLine.size() - minRequired;
-  for (int start = pos; start <= maxStart; ++start) {
-    bool canPlace = true;
-    for (int i = pos; i < start; ++i) {
-      if (currentLine[i] == CellState::FILLED) {
-        canPlace = false;
+  auto dp = run_dp(clues, line);
+  if (!dp[K][N])
+    return false;
+
+  std::vector<int> rev_clues(clues.rbegin(), clues.rend());
+  std::vector<CellState> rev_line(line.rbegin(), line.rend());
+  auto rev_dp = run_dp(rev_clues, rev_line);
+
+  std::vector<bool> canCross(N, false);
+  for (int i = 0; i < N; ++i) {
+    if (line[i] == CellState::FILLED)
+      continue;
+    for (int c = 0; c <= K; ++c) {
+      if (dp[c][i] && rev_dp[K - c][N - 1 - i]) {
+        canCross[i] = true;
         break;
       }
     }
-    if (!canPlace)
-      break;
+  }
 
-    for (int i = 0; i < clues[clueIdx]; ++i) {
-      if (currentLine[start + i] == CellState::CROSSED) {
-        canPlace = false;
-        break;
+  std::vector<bool> canFill(N, false);
+  for (int c = 0; c < K; ++c) {
+    int L = clues[c];
+    for (int start = 0; start <= N - L; ++start) {
+      bool canPlace = true;
+      for (int j = start; j < start + L; ++j) {
+        if (line[j] == CellState::CROSSED) {
+          canPlace = false;
+          break;
+        }
+      }
+      if (!canPlace)
+        continue;
+
+      bool prefixOk = false;
+      if (c == 0) {
+        prefixOk = dp[0][start];
+      } else {
+        if (start >= 1 && line[start - 1] != CellState::FILLED &&
+            dp[c][start - 1]) {
+          prefixOk = true;
+        }
+      }
+      if (!prefixOk)
+        continue;
+
+      bool suffixOk = false;
+      int remaining_clues = K - 1 - c;
+      int suffix_len = N - (start + L);
+      if (remaining_clues == 0) {
+        suffixOk = rev_dp[0][suffix_len];
+      } else {
+        if (suffix_len >= 1 && line[start + L] != CellState::FILLED &&
+            rev_dp[remaining_clues][suffix_len - 1]) {
+          suffixOk = true;
+        }
+      }
+      if (!suffixOk)
+        continue;
+
+      for (int j = start; j < start + L; ++j) {
+        canFill[j] = true;
       }
     }
-    if (start + clues[clueIdx] < currentLine.size()) {
-      if (currentLine[start + clues[clueIdx]] == CellState::FILLED)
-        canPlace = false;
-    }
+  }
 
-    if (canPlace) {
-      for (int i = pos; i < start; ++i)
-        currentPerm[i] = CellState::CROSSED;
-      for (int i = 0; i < clues[clueIdx]; ++i)
-        currentPerm[start + i] = CellState::FILLED;
-      if (start + clues[clueIdx] < currentLine.size())
-        currentPerm[start + clues[clueIdx]] = CellState::CROSSED;
-
-      GetPermsInline(clueIdx + 1, start + clues[clueIdx] + 1, clues,
-                     currentLine, currentPerm, validPerms);
+  for (int i = 0; i < N; ++i) {
+    if (line[i] == CellState::EMPTY) {
+      if (canFill[i] && !canCross[i])
+        resultLine[i] = CellState::FILLED;
+      else if (!canFill[i] && canCross[i])
+        resultLine[i] = CellState::CROSSED;
     }
   }
+  return true;
 }
 
 NonogramLogic::NonogramLogic() : gridSize(5) {}
 
 void NonogramLogic::GenerateNewGame(int size) {
   gridSize = size;
-  bool isLogicallySolvable = false;
 
   int maxAttempts = 200;
   if (size >= 10)
-    maxAttempts = 200;
+    maxAttempts = 50;
   if (size >= 15)
-    maxAttempts = 200;
-  int attempts = 0;
+    maxAttempts = 10;
+  int bestScore = -1;
+  bool foundSolvable = false;
+  std::vector<std::vector<bool>> bestSolution;
 
-  while (!isLogicallySolvable && attempts < maxAttempts) {
-    attempts++;
+  for (int attempts = 0; attempts < maxAttempts; ++attempts) {
     solution.assign(size, std::vector<bool>(size, false));
     int threshold = 50;
     if (size >= 10)
@@ -106,31 +186,17 @@ void NonogramLogic::GenerateNewGame(int size) {
     // Fast logic solver check
     auto testGrid = playerGrid;
     bool changed = true;
-    bool fullySolved = true;
+    int iterations = 0;
     while (changed) {
       changed = false;
+      iterations++;
       for (int r = 0; r < size; ++r) {
         std::vector<CellState> currentLine = testGrid[r];
-        std::vector<CellState> currentPerm(size, CellState::EMPTY);
-        std::vector<std::vector<CellState>> validPerms;
-        GetPermsInline(0, 0, GetRowClue(r), currentLine, currentPerm,
-                       validPerms);
-        if (validPerms.empty())
-          continue;
-        for (int c = 0; c < size; ++c) {
-          if (testGrid[r][c] == CellState::EMPTY) {
-            bool allFilled = true, allCrossed = true;
-            for (const auto &perm : validPerms) {
-              if (perm[c] != CellState::FILLED)
-                allFilled = false;
-              if (perm[c] != CellState::CROSSED)
-                allCrossed = false;
-            }
-            if (allFilled) {
-              testGrid[r][c] = CellState::FILLED;
-              changed = true;
-            } else if (allCrossed) {
-              testGrid[r][c] = CellState::CROSSED;
+        std::vector<CellState> resultLine;
+        if (SolveLineDP(GetRowClue(r), currentLine, resultLine)) {
+          for (int c = 0; c < size; ++c) {
+            if (testGrid[r][c] != resultLine[c]) {
+              testGrid[r][c] = resultLine[c];
               changed = true;
             }
           }
@@ -140,40 +206,63 @@ void NonogramLogic::GenerateNewGame(int size) {
         std::vector<CellState> currentLine(size);
         for (int r = 0; r < size; ++r)
           currentLine[r] = testGrid[r][c];
-        std::vector<CellState> currentPerm(size, CellState::EMPTY);
-        std::vector<std::vector<CellState>> validPerms;
-        GetPermsInline(0, 0, GetColClue(c), currentLine, currentPerm,
-                       validPerms);
-        if (validPerms.empty())
-          continue;
-        for (int r = 0; r < size; ++r) {
-          if (testGrid[r][c] == CellState::EMPTY) {
-            bool allFilled = true, allCrossed = true;
-            for (const auto &perm : validPerms) {
-              if (perm[r] != CellState::FILLED)
-                allFilled = false;
-              if (perm[r] != CellState::CROSSED)
-                allCrossed = false;
-            }
-            if (allFilled) {
-              testGrid[r][c] = CellState::FILLED;
-              changed = true;
-            } else if (allCrossed) {
-              testGrid[r][c] = CellState::CROSSED;
+        std::vector<CellState> resultLine;
+        if (SolveLineDP(GetColClue(c), currentLine, resultLine)) {
+          for (int r = 0; r < size; ++r) {
+            if (testGrid[r][c] != resultLine[r]) {
+              testGrid[r][c] = resultLine[r];
               changed = true;
             }
           }
         }
       }
     }
+
+    int filledCount = 0;
+    int score = iterations * 1000;
+    bool fullySolved = true;
     for (int r = 0; r < size; ++r) {
       for (int c = 0; c < size; ++c) {
         if (testGrid[r][c] == CellState::EMPTY)
           fullySolved = false;
+        else
+          filledCount++;
       }
     }
-    isLogicallySolvable = fullySolved;
+
+    if (!fullySolved) {
+      score = filledCount; // if not fully solved, just prioritize how much can
+                           // be solved logically
+    } else {
+      for (int r = 0; r < size; ++r) {
+        for (int cl : GetRowClue(r))
+          if (cl >= size - 1)
+            score -= 500;
+      }
+      for (int c = 0; c < size; ++c) {
+        for (int cl : GetColClue(c))
+          if (cl >= size - 1)
+            score -= 500;
+      }
+    }
+
+    if (fullySolved && !foundSolvable) {
+      foundSolvable = true;
+      bestScore = score;
+      bestSolution = solution;
+    } else if (fullySolved == foundSolvable) {
+      if (score > bestScore) {
+        bestScore = score;
+        bestSolution = solution;
+      }
+    }
   }
+
+  if (!bestSolution.empty()) {
+    solution = bestSolution;
+  }
+  CalculateClues();
+  playerGrid.assign(size, std::vector<CellState>(size, CellState::EMPTY));
 }
 
 void NonogramLogic::CalculateClues() {

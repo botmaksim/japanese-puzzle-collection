@@ -25,23 +25,13 @@ void NonogramScreen::CalculateAnimSteps() {
 void NonogramScreen::OnCheckPressed() {
   errorHighlightCells.clear();
   checkPassed = false;
-  auto solution = logic.GetSolutionRaw();
-  auto playerGrid = logic.GetPlayerGrid();
-  int size = logic.GetSize();
 
-  for (int r = 0; r < size; ++r) {
-    for (int c = 0; c < size; ++c) {
-      if (playerGrid[r][c] == CellState::FILLED && !solution[r][c]) {
-        errorHighlightCells.push_back({r, c});
-      }
-      if (playerGrid[r][c] == CellState::CROSSED && solution[r][c]) {
-        errorHighlightCells.push_back({r, c});
-      }
-    }
-  }
-
-  if (errorHighlightCells.empty()) {
+  if (logic.IsGameWon()) {
     checkPassed = true;
+  } else {
+    errorHighlightCells = NonogramSolver::GetErrors(logic);
+    if (errorHighlightCells.empty())
+      checkPassed = true;
   }
 }
 
@@ -72,15 +62,51 @@ void NonogramScreen::Init() {
 
   logic.GenerateNewGame(currentSize);
 
-  int maxGridSize = 400;
-  cellSize = maxGridSize / currentSize;
-  if (cellSize > 50)
-    cellSize = 50;
+  int maxRowClues = 0;
+  for (int r = 0; r < currentSize; ++r) {
+    if ((int)logic.GetRowClue(r).size() > maxRowClues)
+      maxRowClues = logic.GetRowClue(r).size();
+  }
+  int maxColClues = 0;
+  for (int c = 0; c < currentSize; ++c) {
+    if ((int)logic.GetColClue(c).size() > maxColClues)
+      maxColClues = logic.GetColClue(c).size();
+  }
+
+  cellSize = 50;
+  int fontSize = cellSize;
+  int approxRowClueWidth = 0;
+  int approxColClueHeight = 0;
+
+  while (cellSize > 4) {
+    fontSize = cellSize;
+    if (fontSize > 20)
+      fontSize = 20;
+
+    approxRowClueWidth =
+        maxRowClues *
+        (fontSize * 1.5 + 6); // Add some buffer for multi-digit clues
+    approxColClueHeight = maxColClues * (fontSize + 2);
+
+    int totalW = approxRowClueWidth + currentSize * cellSize;
+    int totalH = approxColClueHeight + currentSize * cellSize;
+
+    // Leave space for UI on the right (620 limit) and title on top (80 limit)
+    if (totalW <= 620 && totalH <= 480) {
+      break;
+    }
+    cellSize--;
+  }
+
+  if (cellSize < 4)
+    cellSize = 4;
 
   int actualGridSize = currentSize * cellSize;
 
-  offsetX = (800 - actualGridSize) / 2 + 50;
-  offsetY = (600 - actualGridSize) / 2 + 30;
+  offsetX = approxRowClueWidth +
+            (620 - (approxRowClueWidth + actualGridSize)) / 2 + 10;
+  offsetY = 80 + approxColClueHeight +
+            (480 - (approxColClueHeight + actualGridSize)) / 2;
 
   errorHighlightCells.clear();
 }
@@ -147,11 +173,10 @@ NonogramScreen::GetClueStatus(const std::vector<int> &clues,
   if (clues.empty())
     return status;
 
-  std::vector<CellState> cPerm(line.size(), CellState::EMPTY);
-  std::vector<std::vector<CellState>> validPerms;
-  GetPermsInline(0, 0, clues, line, cPerm, validPerms);
+  std::vector<CellState> resLine;
+  bool isValid = SolveLineDP(clues, line, resLine);
 
-  if (validPerms.empty()) {
+  if (!isValid) {
     for (size_t i = 0; i < status.size(); ++i)
       status[i] = 2; // RED
     return status;
@@ -233,11 +258,11 @@ void NonogramScreen::DrawGame() {
     int instrWidth =
         MeasureText("LMB: Fill | RMB: Cross | BACKSPACE: Menu", 20);
     DrawText("LMB: Fill | RMB: Cross | BACKSPACE: Menu", (800 - instrWidth) / 2,
-             offsetY + size * cellSize + 30, 20, GRAY);
+             570, 20, GRAY);
   } else {
     int instrWidth = MeasureText("ANIMATING SOLVER...", 20);
-    DrawText("ANIMATING SOLVER...", (800 - instrWidth) / 2,
-             offsetY + size * cellSize + 30, 20, animPaused ? ORANGE : RED);
+    DrawText("ANIMATING SOLVER...", (800 - instrWidth) / 2, 570, 20,
+             animPaused ? ORANGE : RED);
   }
 
   int animTargetR = -1;
@@ -251,9 +276,7 @@ void NonogramScreen::DrawGame() {
     animReasonC = animSteps[animStepIndex].reasonC;
   }
 
-  int fontSize = cellSize / 2;
-  if (fontSize < 12)
-    fontSize = 12;
+  int fontSize = cellSize;
   if (fontSize > 20)
     fontSize = 20;
 
@@ -263,11 +286,11 @@ void NonogramScreen::DrawGame() {
     std::vector<CellState> lineRow = logic.GetPlayerGrid()[r];
     auto status = GetClueStatus(clues, lineRow);
 
-    int textX = offsetX - 8;
+    int textX = offsetX - 4;
     for (int i = clues.size() - 1; i >= 0; --i) {
       int textW = MeasureText(TextFormat("%d", clues[i]), fontSize);
       Color color = BLACK;
-      if (highlightRed)
+      if (highlightRed || status[i] == 2)
         color = RED;
       else if (status[i] == 1)
         color = LIGHTGRAY;
@@ -280,7 +303,7 @@ void NonogramScreen::DrawGame() {
         DrawLine(textX - textW - 2, yPos + fontSize / 2, textX + 2,
                  yPos + fontSize / 2, LIGHTGRAY);
       }
-      textX -= (textW + 16);
+      textX -= (textW + 6);
     }
   }
 
@@ -292,11 +315,11 @@ void NonogramScreen::DrawGame() {
       lineCol[r] = logic.GetPlayerGrid()[r][c];
     auto status = GetClueStatus(clues, lineCol);
 
-    int textY = offsetY - fontSize - 5;
+    int textY = offsetY - fontSize - 2;
     for (int i = clues.size() - 1; i >= 0; --i) {
       int textW = MeasureText(TextFormat("%d", clues[i]), fontSize);
       Color color = BLACK;
-      if (highlightRed)
+      if (highlightRed || status[i] == 2)
         color = RED;
       else if (status[i] == 1)
         color = LIGHTGRAY;
@@ -308,7 +331,7 @@ void NonogramScreen::DrawGame() {
         DrawLine(xPos - 2, textY + fontSize / 2, xPos + textW + 2,
                  textY + fontSize / 2, LIGHTGRAY);
       }
-      textY -= (fontSize + 5);
+      textY -= (fontSize + 2);
     }
   }
 
@@ -317,28 +340,37 @@ void NonogramScreen::DrawGame() {
       int x = offsetX + c * cellSize;
       int y = offsetY + r * cellSize;
 
-      bool isError = false;
-      for (auto &err : errorHighlightCells)
-        if (err.first == r && err.second == c)
-          isError = true;
-
       CellState state = logic.GetCellState(r, c);
       if (state == CellState::FILLED) {
-        DrawRectangle(x + 2, y + 2, cellSize - 4, cellSize - 4, DARKGRAY);
+        int rectPad = (cellSize > 10) ? 2 : 1;
+        DrawRectangle(x + rectPad, y + rectPad, cellSize - rectPad * 2,
+                      cellSize - rectPad * 2, DARKGRAY);
       } else if (state == CellState::CROSSED) {
         int pad = cellSize / 4;
+        if (pad < 1)
+          pad = 1;
         DrawLineEx({(float)x + pad, (float)y + pad},
                    {(float)(x + cellSize - pad), (float)(y + cellSize - pad)},
-                   2.0f, RED);
+                   (cellSize > 10) ? 2.0f : 1.0f, RED);
         DrawLineEx({(float)x + pad, (float)(y + cellSize - pad)},
-                   {(float)(x + cellSize - pad), (float)y + pad}, 2.0f, RED);
+                   {(float)(x + cellSize - pad), (float)y + pad},
+                   (cellSize > 10) ? 2.0f : 1.0f, RED);
       }
 
       DrawRectangleLines(x, y, cellSize, cellSize, LIGHTGRAY);
 
+      bool isError = false;
+      for (auto &err : errorHighlightCells) {
+        if (err.first == r && err.second == c) {
+          isError = true;
+          break;
+        }
+      }
       if (isError) {
         DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(RED, 0.4f));
-      } else if (isAnimating && r == animTargetR && c == animTargetC) {
+      }
+
+      if (isAnimating && r == animTargetR && c == animTargetC) {
         DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(GREEN, 0.4f));
       } else if (isAnimating && (r == animReasonR || c == animReasonC)) {
         DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(RED, 0.2f));
@@ -364,6 +396,7 @@ void NonogramScreen::DrawGame() {
   }
 
   if (checkPassed) {
+    DrawRectangle(630, 280, 160, 60, LIGHTGRAY);
     DrawText("All correct!", 650, 300, 20, DARKGREEN);
   }
 

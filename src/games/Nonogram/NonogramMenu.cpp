@@ -32,7 +32,7 @@ void NonogramMenu::ShowMainOptions() {
 
 void NonogramMenu::ShowCustomOptions() {
   isCustomMode = true;
-  subtitle = "- ENTER CUSTOM SIZE (5-20) -";
+  subtitle = "- ENTER CUSTOM SIZE (5-40) -";
   buttons.clear();
   AddButton("", []() {});
 
@@ -40,8 +40,8 @@ void NonogramMenu::ShowCustomOptions() {
     int size = customInputStr.empty() ? 5 : std::stoi(customInputStr);
     if (size < 5)
       size = 5;
-    if (size > 20)
-      size = 20;
+    if (size > 40)
+      size = 40;
     configValue = size;
     nextScreen = ScreenType::NONOGRAM;
   });
