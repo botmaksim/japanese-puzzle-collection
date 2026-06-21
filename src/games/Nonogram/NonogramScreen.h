@@ -16,8 +16,7 @@ private:
   std::vector<std::vector<CellState>> baseBoard;
   std::vector<std::pair<int, int>> errorHighlightCells;
 
-  int hintCellR = -1;
-  int hintCellC = -1;
+  bool checkPassed = false;
 
   bool isDragging = false;
   int dragButton = -1;
@@ -27,12 +26,13 @@ private:
 
   std::vector<int> GetClueStatus(const std::vector<int> &clues,
                                  const std::vector<CellState> &line);
+  bool gameWon = false;
 
 protected:
   void ApplyAnimState() override;
   void CalculateAnimSteps() override;
   int GetAnimStepsCount() const override { return animSteps.size(); }
-  void OnHintPressed() override;
+  void OnCheckPressed() override;
   void OnRestartPressed() override;
   void UpdateInput() override;
   void DrawGame() override;

@@ -29,26 +29,29 @@ void SudokuScreen::CalculateAnimSteps() {
   baseNotes = logic.GetNotesRaw();
 }
 
-void SudokuScreen::OnHintPressed() {
-  errorHighlightCells = SudokuSolver::GetErrors(logic);
-  if (errorHighlightCells.empty()) {
-    auto steps = SudokuSolver::GenerateSteps(logic);
-    for (auto &s : steps) {
-      if (s.type == 1) {
-        logic.SetPlayerCell(s.r, s.c, '0' + s.val);
-        hintCellR = s.r;
-        hintCellC = s.c;
-        break;
+void SudokuScreen::OnCheckPressed() {
+  errorHighlightCells.clear();
+  checkPassed = false;
+
+  auto board = logic.GetBoardRaw();
+  auto trueSol = logic.GetTrueSolution();
+  for (int r = 0; r < 9; ++r) {
+    for (int c = 0; c < 9; ++c) {
+      if (board[r][c] != '.' && board[r][c] != trueSol[r][c]) {
+        errorHighlightCells.push_back({r, c});
       }
     }
+  }
+
+  if (errorHighlightCells.empty()) {
+    checkPassed = true;
   }
 }
 
 void SudokuScreen::OnRestartPressed() {
   logic.ResetToInitial();
   errorHighlightCells.clear();
-  hintCellR = -1;
-  hintCellC = -1;
+  checkPassed = false;
   selectedRow = -1;
   selectedCol = -1;
 }
@@ -96,12 +99,12 @@ void SudokuScreen::UpdateInput() {
   Vector2 mouse = GetMousePosition();
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) ||
       IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-    hintCellR = -1;
-    hintCellC = -1;
     int c = (mouse.x - OFFSET_X) / CELL_SIZE;
     int r = (mouse.y - OFFSET_Y) / CELL_SIZE;
 
     if (r >= 0 && r < 9 && c >= 0 && c < 9) {
+      checkPassed = false;
+      errorHighlightCells.clear();
       selectedRow = r;
       selectedCol = c;
       isNoteMode = IsMouseButtonPressed(MOUSE_RIGHT_BUTTON);
@@ -131,24 +134,44 @@ void SudokuScreen::UpdateInput() {
 
   if (selectedRow != -1 && selectedCol != -1) {
     int key = GetKeyPressed();
-    if (key != 0) {
-      hintCellR = -1;
-      hintCellC = -1;
-    }
-    if (key >= KEY_ONE && key <= KEY_NINE) {
+    if (key >= KEY_ZERO && key <= KEY_NINE) {
+      checkPassed = false;
       int val = key - KEY_ZERO;
-      if (isNoteMode) {
+      if (key == KEY_ZERO) {
+        logic.ToggleAllNotes(selectedRow, selectedCol);
+      } else if (isNoteMode) {
         logic.ToggleNote(selectedRow, selectedCol, val);
       } else {
         logic.SetPlayerCell(selectedRow, selectedCol, '0' + val);
         errorHighlightCells.clear();
       }
-    } else if (key == KEY_ZERO) {
-      logic.ToggleAllNotes(selectedRow, selectedCol);
-    } else if (key == KEY_DELETE) {
+    } else if (key == KEY_DELETE || key == KEY_BACKSPACE) {
+      checkPassed = false;
       logic.ClearCell(selectedRow, selectedCol);
       errorHighlightCells.clear();
     }
+  }
+
+  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && gameWon) {
+    nextScreen = ScreenType::MENU;
+  }
+
+  bool isFull = true;
+  bool hasErrors = false;
+  auto board = logic.GetBoardRaw();
+  auto trueSol = logic.GetTrueSolution();
+  for (int r = 0; r < 9; ++r) {
+    for (int c = 0; c < 9; ++c) {
+      if (board[r][c] == '.')
+        isFull = false;
+      else if (board[r][c] != trueSol[r][c])
+        hasErrors = true;
+    }
+  }
+  if (isFull && !hasErrors) {
+    gameWon = true;
+  } else {
+    gameWon = false;
   }
 }
 
@@ -201,8 +224,6 @@ void SudokuScreen::DrawGame() {
       Color bgColor = LIGHTGRAY;
       if (!isAnimating && r == selectedRow && c == selectedCol) {
         bgColor = isNoteMode ? ORANGE : SKYBLUE;
-      } else if (!isAnimating && r == hintCellR && c == hintCellC) {
-        bgColor = GREEN;
       }
 
       bool isError = false;
@@ -296,7 +317,11 @@ void SudokuScreen::DrawGame() {
         thick, BLACK);
   }
 
-  if (logic.IsGameWon()) {
+  if (checkPassed) {
+    DrawText("All correct!", 650, 300, 20, DARKGREEN);
+  }
+
+  if (gameWon || logic.IsGameWon()) {
     int winWidth = MeasureText("YOU WIN!", 60);
     int bgWidth = winWidth + 40;
     int bgHeight = 100;

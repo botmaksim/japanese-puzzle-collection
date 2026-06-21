@@ -16,8 +16,8 @@ private:
   std::vector<std::vector<std::bitset<10>>> baseNotes;
   std::vector<std::pair<int, int>> errorHighlightCells;
 
-  int hintCellR = -1;
-  int hintCellC = -1;
+  bool checkPassed = false;
+  bool gameWon = false;
 
   const int CELL_SIZE = 50;
   const int OFFSET_X = 150;
@@ -27,7 +27,7 @@ protected:
   void ApplyAnimState() override;
   void CalculateAnimSteps() override;
   int GetAnimStepsCount() const override { return animSteps.size(); }
-  void OnHintPressed() override;
+  void OnCheckPressed() override;
   void OnRestartPressed() override;
   void UpdateInput() override;
   void DrawGame() override;

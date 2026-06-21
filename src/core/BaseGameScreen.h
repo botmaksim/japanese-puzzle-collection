@@ -16,7 +16,7 @@ protected:
   virtual void ApplyAnimState() = 0;
   virtual void CalculateAnimSteps() = 0;
   virtual int GetAnimStepsCount() const = 0;
-  virtual void OnHintPressed() = 0;
+  virtual void OnCheckPressed() = 0;
   virtual void OnRestartPressed() = 0;
   virtual void UpdateInput() = 0;
   virtual void DrawGame() = 0;

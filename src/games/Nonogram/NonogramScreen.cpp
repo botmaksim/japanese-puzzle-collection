@@ -22,28 +22,33 @@ void NonogramScreen::CalculateAnimSteps() {
   baseBoard = logic.GetPlayerGrid();
 }
 
-void NonogramScreen::OnHintPressed() {
-  errorHighlightCells = NonogramSolver::GetErrors(logic);
-  if (errorHighlightCells.empty()) {
-    auto steps = NonogramSolver::GenerateSteps(logic);
-    if (!steps.empty()) {
-      auto &s = steps[0];
-      logic.ClearCell(s.r, s.c);
-      if (s.type == 0)
-        logic.ToggleCrossCell(s.r, s.c);
-      else
-        logic.ToggleCell(s.r, s.c);
-      hintCellR = s.r;
-      hintCellC = s.c;
+void NonogramScreen::OnCheckPressed() {
+  errorHighlightCells.clear();
+  checkPassed = false;
+  auto solution = logic.GetSolutionRaw();
+  auto playerGrid = logic.GetPlayerGrid();
+  int size = logic.GetSize();
+
+  for (int r = 0; r < size; ++r) {
+    for (int c = 0; c < size; ++c) {
+      if (playerGrid[r][c] == CellState::FILLED && !solution[r][c]) {
+        errorHighlightCells.push_back({r, c});
+      }
+      if (playerGrid[r][c] == CellState::CROSSED && solution[r][c]) {
+        errorHighlightCells.push_back({r, c});
+      }
     }
+  }
+
+  if (errorHighlightCells.empty()) {
+    checkPassed = true;
   }
 }
 
 void NonogramScreen::OnRestartPressed() {
   logic.ResetToInitial();
   errorHighlightCells.clear();
-  hintCellR = -1;
-  hintCellC = -1;
+  checkPassed = false;
 }
 
 void NonogramScreen::Init() {
@@ -89,11 +94,9 @@ void NonogramScreen::UpdateInput() {
 
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) ||
       IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-    hintCellR = -1;
-    hintCellC = -1;
-    errorHighlightCells.clear();
-
     if (inBounds) {
+      checkPassed = false;
+      errorHighlightCells.clear();
       isDragging = true;
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         dragButton = MOUSE_LEFT_BUTTON;
@@ -129,6 +132,12 @@ void NonogramScreen::UpdateInput() {
   } else {
     isDragging = false;
   }
+
+  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && gameWon) {
+    nextScreen = ScreenType::MENU;
+  }
+
+  gameWon = logic.IsGameWon();
 }
 
 std::vector<int>
@@ -258,7 +267,7 @@ void NonogramScreen::DrawGame() {
     for (int i = clues.size() - 1; i >= 0; --i) {
       int textW = MeasureText(TextFormat("%d", clues[i]), fontSize);
       Color color = BLACK;
-      if (highlightRed || status[i] == 2)
+      if (highlightRed)
         color = RED;
       else if (status[i] == 1)
         color = LIGHTGRAY;
@@ -287,7 +296,7 @@ void NonogramScreen::DrawGame() {
     for (int i = clues.size() - 1; i >= 0; --i) {
       int textW = MeasureText(TextFormat("%d", clues[i]), fontSize);
       Color color = BLACK;
-      if (highlightRed || status[i] == 2)
+      if (highlightRed)
         color = RED;
       else if (status[i] == 1)
         color = LIGHTGRAY;
@@ -312,17 +321,6 @@ void NonogramScreen::DrawGame() {
       for (auto &err : errorHighlightCells)
         if (err.first == r && err.second == c)
           isError = true;
-      if (isError) {
-        DrawRectangle(x, y, cellSize, cellSize, RED);
-      } else if (isAnimating && r == animTargetR && c == animTargetC) {
-        DrawRectangle(x, y, cellSize, cellSize, GREEN);
-      } else if (isAnimating && (r == animReasonR || c == animReasonC)) {
-        DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(RED, 0.2f));
-      } else if (!isAnimating && r == hintCellR && c == hintCellC) {
-        DrawRectangle(x, y, cellSize, cellSize, GREEN);
-      }
-
-      DrawRectangleLines(x, y, cellSize, cellSize, LIGHTGRAY);
 
       CellState state = logic.GetCellState(r, c);
       if (state == CellState::FILLED) {
@@ -334,6 +332,16 @@ void NonogramScreen::DrawGame() {
                    2.0f, RED);
         DrawLineEx({(float)x + pad, (float)(y + cellSize - pad)},
                    {(float)(x + cellSize - pad), (float)y + pad}, 2.0f, RED);
+      }
+
+      DrawRectangleLines(x, y, cellSize, cellSize, LIGHTGRAY);
+
+      if (isError) {
+        DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(RED, 0.4f));
+      } else if (isAnimating && r == animTargetR && c == animTargetC) {
+        DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(GREEN, 0.4f));
+      } else if (isAnimating && (r == animReasonR || c == animReasonC)) {
+        DrawRectangle(x, y, cellSize, cellSize, ColorAlpha(RED, 0.2f));
       }
     }
   }
@@ -353,6 +361,10 @@ void NonogramScreen::DrawGame() {
           {(float)(offsetX + i * cellSize), (float)(offsetY + size * cellSize)},
           2, BLACK);
     }
+  }
+
+  if (checkPassed) {
+    DrawText("All correct!", 650, 300, 20, DARKGREEN);
   }
 
   if (logic.IsGameWon()) {

@@ -34,7 +34,7 @@ void BaseGameScreen::Update() {
     }
   }
 
-  Rectangle btnHint = {650, 100, 120, 40};
+  Rectangle btnCheck = {650, 100, 120, 40};
   Rectangle btnVis = {650, 160, 120, 40};
   Rectangle btnRestart = {650, 220, 120, 40};
 
@@ -48,9 +48,9 @@ void BaseGameScreen::Update() {
   bool clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 
   if (!isAnimating) {
-    if ((clicked && CheckCollisionPointRec(mouse, btnHint)) ||
+    if ((clicked && CheckCollisionPointRec(mouse, btnCheck)) ||
         IsKeyPressed(KEY_H)) {
-      OnHintPressed();
+      OnCheckPressed();
     }
     if ((clicked && CheckCollisionPointRec(mouse, btnVis)) ||
         IsKeyPressed(KEY_A)) {
@@ -127,7 +127,7 @@ void BaseGameScreen::Draw() {
 
   DrawGame();
   if (!isAnimating) {
-    DrawButton({650, 100, 120, 40}, "Hint");
+    DrawButton({650, 100, 120, 40}, "Check");
     DrawButton({650, 160, 120, 40}, "Auto-Solve");
     DrawButton({650, 220, 120, 40}, "Restart");
   } else {
