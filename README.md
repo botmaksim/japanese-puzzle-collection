@@ -84,5 +84,5 @@ Install [Visual Studio](https://visualstudio.microsoft.com/) (with C++ Desktop D
 
 3. **Run the Program:**
    ```bash
-   ./japanese-game-collection
+   ./japanese-puzzle-collection
    ```

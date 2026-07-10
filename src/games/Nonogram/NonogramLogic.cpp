@@ -148,7 +148,7 @@ void NonogramLogic::GenerateNewGame(int size) {
   if (size >= 10)
     maxAttempts = 50;
   if (size >= 15)
-    maxAttempts = 10;
+    maxAttempts = 20;
   int bestScore = -1;
   bool foundSolvable = false;
   std::vector<std::vector<bool>> bestSolution;
