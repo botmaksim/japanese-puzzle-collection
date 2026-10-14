@@ -1,88 +1,81 @@
-# Japanese Puzzle Collection
+# Japanese Puzzle Collection: Deductive Sudoku & Nonogram Suite
 
-An elegant, high-performance logic puzzle suite featuring **Sudoku** and **Nonogram** (Picross). Crafted for puzzle enthusiasts and developers alike, this project highlights robust automated solving algorithms and seamless interactive visualizations.
+[![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.wikipedia.org/wiki/C%2B%2B17)
+[![CMake 3.16+](https://img.shields.io/badge/CMake-3.16%2B-blue.svg)](https://cmake.org/)
+[![Algorithms](https://img.shields.io/badge/Algorithms-Logic%20Solvers-brightgreen.svg)](#)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Features
+An algorithmic logic puzzle suite implementing human-like automated deductive solving routines for Sudoku and Nonograms. Written in C++17, the application features step-by-step inference tracking, visual candidate elimination, and contextual hint generation without relying on brute-force search.
 
-- **Classic Puzzle Engines:** Full implementations of both Sudoku and Nonograms with scalable difficulty logic.
-- **Algorithmic Auto-Solvers:** Deep logic engines capable of solving grids step-by-step using human-like deductive reasoning (e.g., Hidden Singles, Naked Singles, Line/Block Elimination).
-- **Interactive Visualizations:** Watch the solver "think". The UI highlights rows, columns, and target cells in real-time as inferences are made.
-- **Smart Hinting System:** Context-aware hints that provide exact reasoning and color-coded multi-target elimination.
-- **Adjustable Animation Curves:** Control solver playback speeds ranging from subtle 1x speed to an ultra-fast 16x simulation.
-- **Clean Architecture:** Strict separation between core game logic, user interface state, and algorithmic solvers.
+---
 
-## Included Games
+## Table of Contents
+1. [Supported Puzzles & Algorithms](#supported-puzzles--algorithms)
+2. [Architecture](#architecture)
+3. [Prerequisites](#prerequisites)
+4. [Build & Execution](#build--execution)
+5. [Directory Structure](#directory-structure)
+6. [License](#license)
 
-### Sudoku
-A staple mathematical placement puzzle. Fill the 9×9 grid so that every row, column, and 3×3 subgrid contains all digits from 1 to 9.
-* Featuring note-taking tools, instant conflict-checking, and one-click multi-note elimination for streamlined gameplay.
+---
 
-### Nonogram (Picross)
-A picture logic puzzle in which cells in a grid must be colored or left blank according to numeric clues at the side of the grid to reveal a hidden picture.
-* Highlights exact row and column clue rationale during auto-solve sweeps. 
+## Supported Puzzles & Algorithms
+
+### Sudoku Engine
+* **Naked & Hidden Singles**: Direct deductive cell identification.
+* **Locked Candidates**: Pointing and claiming line-box reductions.
+* **Naked & Hidden Subsets**: Pairs, triples, and quads elimination.
+* **Inference Tracking**: Explains step-by-step logic behind every move.
+
+### Nonogram Engine
+* **Line Overlap Deduction**: Calculates definite cell bounds based on row and column numeric clues.
+* **Contradiction Checking**: Validates potential fill operations against orthogonal constraints.
+
+---
 
 ## Architecture
 
-The game collection is developed using modern cross-platform development paradigms, isolating the logic solvers from the renderer. Removing code duplication natively allows deep-stepping through game logic without bogging down the rendering thread.
+* **`core`**: Grid representation, bitmask candidate states, and constraint propagation rules.
+* **`games`**: Solver logic for Sudoku and Nonogram puzzle types.
+* **`screens`**: Interactive interface for manual play, puzzle generation, and automated solver visualization.
 
-### Source Highlights:
-* `games/Sudoku/SudokuSolver`: Contains the core back-tracking and logical deduction tree for Sudoku.
-* `games/Nonogram/NonogramSolver`: Implements permutation testing and overlap scanning for strict Nonogram deductions.
-* `core/BaseGameScreen`: The centralized abstract backbone managing lifecycle and UI animation playback speeds across the suite.
+---
 
-## Scaling Potential
+## Prerequisites
 
-The strict modular architecture allows for easy expansion. Because the core grid, navigation systems, and base UI layers are abstracted out, the collection has huge potential for scaling. Additional logic puzzle games like **Kakuro**, **Hitori**, **Slitherlink**, or **Nurikabe** can be integrated seamlessly by simply:
-1. Extending the `BaseGameScreen` core class.
-2. Providing a unique constraint solver algorithm.
-3. Hooking the new game module into the main UI routing.
+* Compiler: GCC 9+ or Clang 10+ with C++17 support
+* Build System: CMake 3.16+
 
-## Build Instructions
+---
 
-This project is built using C++17 and CMake, leveraging the Raylib library for rendering. To assemble and run the project locally, follow these steps:
+## Build & Execution
 
-### Prerequisites (Raylib System Dependencies)
-
-Before building, you must install a C++ compiler, CMake, and the necessary system development libraries. **For Linux, Raylib requires X11, Wayland, OpenGL, and Audio development packages to compile correctly.**
-
-**Ubuntu / Debian:**
 ```bash
-sudo apt update
-sudo apt install build-essential cmake git
-sudo apt install libasound2-dev libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxcursor-dev libxinerama-dev libwayland-dev libxkbcommon-dev
+git clone git@github.com:botmaksim/japanese-puzzle-collection.git
+cd japanese-puzzle-collection
+
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+
+./build/japanese-puzzle-collection
 ```
 
-**Fedora:**
-```bash
-sudo dnf install gcc-c++ cmake git
-sudo dnf install alsa-lib-devel mesa-libGL-devel libX11-devel libXrandr-devel libXi-devel libXcursor-devel libXinerama-devel wayland-devel libxkbcommon-devel
+---
+
+## Directory Structure
+
+```text
+japanese-puzzle-collection/
+├── CMakeLists.txt           # Primary build configuration
+├── src/
+│   ├── main.cpp             # Entry point
+│   ├── core/                # Grid data structures and candidate bitmasks
+│   ├── games/               # Sudoku and Nonogram deductive solvers
+│   └── screens/             # Interactive terminal and UI screens
 ```
 
-**macOS:**
-```bash
-xcode-select --install
-brew install cmake
-```
+---
 
-**Windows:**
-Install [Visual Studio](https://visualstudio.microsoft.com/) (with C++ Desktop Development) or [MinGW-w64](https://www.mingw-w64.org/), along with [CMake](https://cmake.org/download/).
+## License
 
-### Building
-
-1. **Create a Build Directory and Configure:**
-   ```bash
-   mkdir build && cd build
-   cmake ..
-   ```
-   *(Note: CMake will automatically fetch and link Raylib during the configure step)*
-
-2. **Compile the Project:**
-   ```bash
-   cmake --build .
-   ```
-   *The executable built from the source will be generated in the build directory.*
-
-3. **Run the Program:**
-   ```bash
-   ./japanese-puzzle-collection
-   ```
+This project is open-source software licensed under the [MIT License](LICENSE).
